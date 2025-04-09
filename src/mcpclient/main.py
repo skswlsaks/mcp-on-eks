@@ -10,7 +10,6 @@ from typing import Dict, Any, List, Optional, Literal, AsyncGenerator, Union
 import uuid
 import threading
 from contextlib import asynccontextmanager
-import os
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
@@ -25,8 +24,10 @@ from src.mcpclient.mcpclient import MCPClient
 
 mcpclient = MCPClient()
 async def initialize_mcp_client(app: FastAPI):
-    await mcpclient.connect_to_server("/Users/jinmp/Documents/allsource/mcp-bedrock/src/mcpservers/collectdata/collectdata.py")
-    # await mcpclient.connect_to_server("/Users/jinmp/Documents/allsource/mcp-bedrock/src/mcpservers/s3/s3.py")
+    await mcpclient.connect_to_server([
+        "/Users/jinmp/Documents/allsource/mcp-bedrock/src/mcpservers/collectdata/collectdata.py",
+        "/Users/jinmp/Documents/allsource/mcp-bedrock/src/mcpservers/s3/s3.py"
+    ])
     yield
 
 app = FastAPI(lifespan=initialize_mcp_client)
@@ -35,7 +36,7 @@ app = FastAPI(lifespan=initialize_mcp_client)
 
 # Health Check
 @app.get("/")
-def read_root():
+def health_check():
     return JSONResponse({"status": "healthy"})
 
 
@@ -73,6 +74,27 @@ async def chat_stream(request: Request, prompt: Prompt):
             generate_stream(),
             media_type="text/event-stream"
         )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/get_mcp_servers")
+async def get_mcp_servers(request: Request):
+    try:
+        # Get the list of MCP servers
+        mcp_servers = mcpclient.get_mcp_servers_list()
+        # Return the list of MCP servers
+        return JSONResponse(mcp_servers)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/set_mcp_servers")
+async def set_mcp_servers(request: Request, server_setting: dict):
+    try:
+        mcpclient.set_mcp_servers(server_setting)
+        return JSONResponse({"status": "success"})
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

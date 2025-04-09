@@ -20,13 +20,14 @@ class MCPClient:
             service_name='bedrock-runtime',
             region_name='us-east-1'
         )
+        self.tools = []
 
-    async def connect_to_server(self, server_script_path: str):
-        if not server_script_path.endswith(('.py', '.js')):
-            raise ValueError("Server script must be a .py or .js file")
-
-        command = "python" if server_script_path.endswith('.py') else "node"
-        server_params = StdioServerParameters(command=command, args=[server_script_path], env=None)
+    async def connect_to_server(self, server_script_path: List[str]):
+        for script in server_script_path:
+            if not script.endswith(('.py', '.js')):
+                raise ValueError("Server script must be a .py or .js file")
+            # command = "python" if script.endswith('.py') else "node"
+        server_params = StdioServerParameters(command="python", args=server_script_path, env=None)
 
         stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
         self.stdio, self.write = stdio_transport
@@ -34,6 +35,12 @@ class MCPClient:
         await self.session.initialize()
 
         response = await self.session.list_tools()
+        self.tools = [{
+            "name": tool.name,
+            "description": tool.description,
+            "input_schema": tool.inputSchema,
+            "status": True
+        } for tool in response.tools]
         print("\nConnected to server with tools:", [tool.name for tool in response.tools])
 
     async def cleanup(self):
@@ -57,17 +64,8 @@ class MCPClient:
     async def process_query(self, query: str) -> str:
         messages = [Message.user(query).__dict__]
         response = await self.session.list_tools()
-
-        available_tools = [{
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.inputSchema
-        } for tool in response.tools]
-
-        bedrock_tools = Message.to_bedrock_format(available_tools)
-
+        bedrock_tools = Message.to_bedrock_format(list(filter(lambda x: x['status'], self.tools)))
         response = self.make_bedrock_request(messages, bedrock_tools)
-
         return await self._process_response(
           response, messages, bedrock_tools
         )
@@ -138,6 +136,18 @@ class MCPClient:
                 print("\n" + response)
             except Exception as e:
                 print(f"\nError: {str(e)}")
+
+    def get_mcp_servers_list(self):
+        resp = {}
+        for tool in self.tools:
+            resp[tool["name"]] = tool["status"]
+        return resp
+
+    def set_mcp_servers(self, server_settings: dict):
+        print(self.tools)
+        for i in range(len(self.tools)):
+            self.tools[i]["status"] = server_settings[self.tools[i]["name"]]
+
 
 # client.py
 # async def main():

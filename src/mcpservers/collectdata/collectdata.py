@@ -2,7 +2,7 @@ import datetime
 import yfinance as yf
 import httpx
 from typing import Any
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Initialize FastMCP server
 mcp = FastMCP("stock")

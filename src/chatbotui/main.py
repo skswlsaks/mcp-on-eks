@@ -1,17 +1,25 @@
+import os
 import json
 import requests
 import streamlit as st
+
+base_url = os.environ.get('BASE_URL', 'http://localhost:8000')
+mcp_servers = requests.get(f"{base_url}/get_mcp_servers")
+servers = mcp_servers.json()
+
+def change_server_status(server, status):
+    servers[server] = not status
+    requests.post(f"{base_url}/set_mcp_servers", json=servers)
 
 with st.sidebar:
     st.title('🦙💬 Bedrock Chatbot with MCP ')
     st.write('This chatbot is created using the Amazon Bedrock.')
 
     container = st.container(border=True)
-    container.subheader('Model Context Protocol')
-    on = container.toggle("Activate feature1")
-    on = container.toggle("Activate feature2")
-    on = container.toggle("Activate feature3")
+    container.subheader('MCP Servers')
 
+    for server, status in servers.items():
+        on = container.toggle(label=server, value=status, on_change=change_server_status, args=(server, status))
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -21,23 +29,15 @@ if "messages" not in st.session_state:
 def get_bedrock_stream_response(prompt):
 
     try:
-        # response = requests.post("http://localhost:8000/test_mcpclient", json={"content": prompt}, stream=True)
-
-        # # Iterate through the streaming response
-        # for line in response.iter_lines(decode_unicode=True):
-        #     if line:
-        #         line_response = json.loads(line)
-        #         if line_response['content']:
-        #             yield line_response['content']
-        response = requests.post("http://localhost:8000/test_mcpclient", json={"content": prompt})
+        response = requests.post(f"{base_url}/test_mcpclient", json={"content": prompt})
         yield response.json()['response']
 
     except Exception as e:
         yield f"Error: {str(e)}"
 
 
-st.title("MCP Demo")
-res = requests.get("http://localhost:8000")
+st.title("MCP Demo UI")
+
 
 # Display or clear chat messages
 for message in st.session_state.messages:
@@ -69,5 +69,3 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-# run with
-# streamlit run main.py
