@@ -1,37 +1,22 @@
-import os
-import sys
-import json
-import time
-import argparse
-import logging
-import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Literal, AsyncGenerator, Union
-import uuid
-import threading
-from contextlib import asynccontextmanager
-from botocore.config import Config
-from botocore.exceptions import ClientError
-from dotenv import load_dotenv
-from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks, Security
-from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.security.api_key import APIKeyHeader
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 
 from src.mcpclient.model import Prompt
 from src.mcpclient.mcpclient import MCPClient
 
+mcp_servers = {
+    "s3": "http://localhost:8080/sse",
+    "financial_data": "http://localhost:8081/sse",
+    "financial_analysis": "http://localhost:8082/sse",
+}
 
 mcpclient = MCPClient()
 async def initialize_mcp_client(app: FastAPI):
-    await mcpclient.connect_to_server([
-        "/Users/jinmp/Documents/allsource/mcp-bedrock/src/mcpservers/collectdata/collectdata.py",
-        "/Users/jinmp/Documents/allsource/mcp-bedrock/src/mcpservers/s3/s3.py"
-    ])
+    await mcpclient.connect_to_sse_server(list(mcp_servers.values()))
     yield
 
 app = FastAPI(lifespan=initialize_mcp_client)
-
 
 
 # Health Check
@@ -42,65 +27,7 @@ def health_check():
 
 # Chat API
 @app.post("/chat")
-async def chat_stream(request: Request, prompt: Prompt):
-    try:
-        prompt = prompt.content
-
-        if not prompt:
-            raise HTTPException(status_code=400, detail="Prompt is required")
-
-        async def generate_stream():
-            messages = [
-                {
-                    "role": "user",
-                    "content": [{"text": prompt}]
-                }
-            ]
-            try:
-                response = mcpclient.make_bedrock_request(messages=messages, tools=None)
-
-                # Handle the EventStream response
-                for event in response['stream']:
-                    if 'contentBlockDelta' in event:
-                        chunk = event['contentBlockDelta']['delta'].get('text', '')
-                        if chunk:
-                            # Format for SSE
-                            yield f"{json.dumps({'content': chunk})}\n"
-
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-        return StreamingResponse(
-            generate_stream(),
-            media_type="text/event-stream"
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/get_mcp_servers")
-async def get_mcp_servers(request: Request):
-    try:
-        # Get the list of MCP servers
-        mcp_servers = mcpclient.get_mcp_servers_list()
-        # Return the list of MCP servers
-        return JSONResponse(mcp_servers)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/set_mcp_servers")
-async def set_mcp_servers(request: Request, server_setting: dict):
-    try:
-        mcpclient.set_mcp_servers(server_setting)
-        return JSONResponse({"status": "success"})
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/test_mcpclient")
-async def test_mcpclient(request: Request, prompt: Prompt):
+async def chat(request: Request, prompt: Prompt):
     try:
         prompt = prompt.content
         if not prompt:
@@ -113,4 +40,18 @@ async def test_mcpclient(request: Request, prompt: Prompt):
         return JSONResponse({"response": response})
 
     except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/get_mcp_servers")
+async def get_mcp_servers(request: Request):
+    try:
+        # Get the list of MCP servers
+        mcp_servers = await mcpclient.get_mcp_servers_list()
+        # Return the list of MCP servers
+        return JSONResponse(mcp_servers)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

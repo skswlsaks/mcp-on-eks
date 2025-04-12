@@ -1,70 +1,85 @@
-import sys
-import asyncio
-from typing import Optional, List, Dict
+from typing import Optional
 from contextlib import AsyncExitStack
 
 import boto3
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-
+from mcp import ClientSession
+from mcp.client.sse import sse_client
 from src.mcpclient.message import Message
+from typing import List, Dict
 
 
 class MCPClient:
     MODEL_ID = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
 
     def __init__(self):
-        self.session: Optional[ClientSession] = None
+        # Initialize session and client objects
+        self.session: List[Optional[ClientSession]] = []
         self.exit_stack = AsyncExitStack()
         self.bedrock = boto3.client(
             service_name='bedrock-runtime',
             region_name='us-east-1'
         )
-        self.tools = []
+        self._streams_context = []
+        self.tool_session_map = {}
 
-    async def connect_to_server(self, server_script_path: List[str]):
-        for script in server_script_path:
-            if not script.endswith(('.py', '.js')):
-                raise ValueError("Server script must be a .py or .js file")
-            # command = "python" if script.endswith('.py') else "node"
-        server_params = StdioServerParameters(command="python", args=server_script_path, env=None)
+    async def connect_to_sse_server(self, server_url: List[str]):
+        """Connect to an MCP server running with SSE transport"""
+        # Store the context managers so they stay alive
+        for url in server_url:
+            self._streams_context.append(sse_client(url=url))
 
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-        self.stdio, self.write = stdio_transport
-        self.session = await self.exit_stack.enter_async_context(ClientSession(self.stdio, self.write))
-        await self.session.initialize()
+        streams = [await sc.__aenter__() for sc in self._streams_context]
 
-        response = await self.session.list_tools()
-        self.tools = [{
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.inputSchema,
-            "status": True
-        } for tool in response.tools]
-        print("\nConnected to server with tools:", [tool.name for tool in response.tools])
+        self._session_context = [ClientSession(*stream) for stream in streams]
+        self.session: List[ClientSession] = [await sc.__aenter__() for sc in self._session_context]
+
+        # Initialize
+        [await s.initialize() for s in self.session]
+
+        # List available tools to verify connection
+        print("Initialized SSE client...")
+        print("Listing tools...")
+
+        all_tools = []
+        for s in self.session:
+            response = await s.list_tools()
+            for r in response.tools:
+                self.tool_session_map[r.name] = s
+                all_tools.append(r.name)
+        print("\nConnected to server with tools:", all_tools)
 
     async def cleanup(self):
-        await self.exit_stack.aclose()
+        """Properly clean up the session and streams"""
+        if self._session_context:
+            await self._session_context.__aexit__(None, None, None)
+        if self._streams_context:
+            await self._streams_context.__aexit__(None, None, None)
 
     def make_bedrock_request(self, messages: List[Dict], tools: List[Dict] | None) -> Dict:
+        settings = {
+            "modelId": self.MODEL_ID,
+            "messages": messages,
+            "inferenceConfig": {"maxTokens": 1000, "temperature": 0},
+        }
         if tools:
-            return self.bedrock.converse(
-                modelId=self.MODEL_ID,
-                messages=messages,
-                inferenceConfig={"maxTokens": 1000, "temperature": 0},
-                toolConfig={"tools": tools}
-            )
-        else:
-            return self.bedrock.converse_stream(
-                modelId=self.MODEL_ID,
-                messages=messages,
-                inferenceConfig={"maxTokens": 1000, "temperature": 0}
-            )
+            settings["toolConfig"] = {"tools": tools}
+
+        return self.bedrock.converse(**settings)
+
 
     async def process_query(self, query: str) -> str:
+        """Process a query using Claude and available tools"""
         messages = [Message.user(query).__dict__]
-        response = await self.session.list_tools()
-        bedrock_tools = Message.to_bedrock_format(list(filter(lambda x: x['status'], self.tools)))
+
+        response = [await s.list_tools() for s in self.session]
+        available_tools = []
+        for r in response:
+            available_tools += [{
+                "name": tool.name,
+                "description": tool.description,
+                "input_schema": tool.inputSchema
+            } for tool in r.tools]
+        bedrock_tools = Message.to_bedrock_format(available_tools)
         response = self.make_bedrock_request(messages, bedrock_tools)
         return await self._process_response(
           response, messages, bedrock_tools
@@ -113,9 +128,10 @@ class MCPClient:
         tool_name = tool_info['name']
         tool_args = tool_info['input']
         tool_use_id = tool_info['toolUseId']
+        print("Calling", tool_name)
 
         # (2)
-        result = await self.session.call_tool(tool_name, tool_args)
+        result = await self.tool_session_map[tool_name].call_tool(tool_name, tool_args)
 
         # (3)
         messages.append(Message.tool_request(tool_use_id, tool_name, tool_args).__dict__)
@@ -124,43 +140,40 @@ class MCPClient:
         # (4)
         return [f"[Calling tool {tool_name} with args {tool_args}]"]
 
-
     async def chat_loop(self):
-        print("\nMCP Client Started!\nType your queries or 'quit' to exit.")
         while True:
             try:
                 query = input("\nQuery: ").strip()
+
                 if query.lower() == 'quit':
                     break
+
                 response = await self.process_query(query)
                 print("\n" + response)
+
             except Exception as e:
                 print(f"\nError: {str(e)}")
 
-    def get_mcp_servers_list(self):
-        resp = {}
-        for tool in self.tools:
-            resp[tool["name"]] = tool["status"]
-        return resp
+    async def get_mcp_servers_list(self):
+        response = [await s.list_tools() for s in self.session]
+        available_tools = []
+        for r in response:
+            available_tools += [{
+                "name": tool.name,
+                "description": tool.description,
+            } for tool in r.tools]
+        return available_tools
 
-    def set_mcp_servers(self, server_settings: dict):
-        print(self.tools)
-        for i in range(len(self.tools)):
-            self.tools[i]["status"] = server_settings[self.tools[i]["name"]]
 
-
-# client.py
+# If you want to run seperately, please uncomment code below
 # async def main():
 #     if len(sys.argv) < 2:
-#         print("Usage: python client.py <path_to_server_script>")
+#         print("Usage: uv run client.py <URL of SSE MCP server (i.e. http://localhost:8080/sse)>")
 #         sys.exit(1)
 
 #     client = MCPClient()
 #     try:
-#         await client.connect_to_server(sys.argv[1])
+#         await client.connect_to_sse_server(server_url="http://localhost:8000/sse")
 #         await client.chat_loop()
 #     finally:
 #         await client.cleanup()
-
-# if __name__ == "__main__":
-#     asyncio.run(main())

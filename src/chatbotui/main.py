@@ -15,11 +15,13 @@ with st.sidebar:
     st.title('🦙💬 Bedrock Chatbot with MCP ')
     st.write('This chatbot is created using the Amazon Bedrock.')
 
-    container = st.container(border=True)
-    container.subheader('MCP Servers')
+    # container = st.container(border=True)
+    st.subheader('MCP Servers')
 
-    for server, status in servers.items():
-        on = container.toggle(label=server, value=status, on_change=change_server_status, args=(server, status))
+    for response in servers:
+        with st.expander(response['name']):
+            st.write(response['description'])
+
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -29,7 +31,7 @@ if "messages" not in st.session_state:
 def get_bedrock_stream_response(prompt):
 
     try:
-        response = requests.post(f"{base_url}/test_mcpclient", json={"content": prompt})
+        response = requests.post(f"{base_url}/chat", json={"content": prompt})
         yield response.json()['response']
 
     except Exception as e:

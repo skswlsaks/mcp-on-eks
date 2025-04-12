@@ -1,21 +1,24 @@
+import click
 import boto3
+import uvicorn
 from datetime import datetime
 from io import BytesIO
 from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
 
-
-# Initialize FastMCP server
-mcp = FastMCP("time")
+mcp = FastMCP("s3")
 
 @mcp.tool()
 async def save_text_to_s3(text: str, bucket_name: str, file_name: str) -> str:
     """
     Save text content to a txt file and upload to S3
 
-    Args:
-        text (str): Text content to save
-        bucket_name (str): Name of S3 bucket
-        file_name (str): Name of file to create in S3
+    Args: \n
+        `text` (str): Text content to save
+        `bucket_name` (str): Name of S3 bucket
+        `file_name` (str): Name of file to create in S3
 
     Returns:
         str: Response containing status and file details
@@ -63,8 +66,37 @@ async def save_text_to_s3(text: str, bucket_name: str, file_name: str) -> str:
         memoryfile.close()
 
 
+@click.command()
+@click.option("--port", default=8080)
+@click.option(
+    "--transport",
+    type=click.Choice(["stdio", "sse"]),
+    default="stdio",
+    help="Transport type",
+)
+def main_server(port: int, transport: str) -> int:
+
+    sse = SseServerTransport("/messages/")
+
+    async def handle_sse(request):
+        async with sse.connect_sse(
+            request.scope, request.receive, request._send
+        ) as streams:
+            await mcp._mcp_server.run(
+                streams[0], streams[1], mcp._mcp_server.create_initialization_options()
+            )
+
+    starlette_app = Starlette(
+        debug=True,
+        routes=[
+            Route("/sse", endpoint=handle_sse),
+            Mount("/messages/", app=sse.handle_post_message),
+        ],
+    )
+
+    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
+
+    return 0
+
 if __name__ == "__main__":
-    mcp.run()
-
-# def save_text_to_s3(text: str, bucket_name: str, file_name: str) -> dict:
-
+    main_server()

@@ -9,3 +9,6 @@ wheels/
 # Virtual environments
 .venv
 *.lock
+*.ipynb
+*.vscode
+.DS_Store
