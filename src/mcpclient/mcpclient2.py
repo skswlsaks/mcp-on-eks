@@ -1,26 +1,28 @@
 from typing import Optional
 from contextlib import AsyncExitStack
 
-import boto3
+from openai import OpenAI
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from src.mcpclient.message import Message
+from src.mcpclient.message import MessageVllm
 from typing import List, Dict
 
 
 class MCPClient:
-    MODEL_ID = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+    # MODEL_ID = "us.anthropic.claude-3-5-haiku-20241022-v1:0"
     # MODEL_ID = "amazon.nova-micro-v1:0"
     # MODEL_ID = "amazon.nova-lite-v1:0"
+    MODEL_ID = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 
     def __init__(self):
         # Initialize session and client objects
         self.session: List[Optional[ClientSession]] = []
         self.exit_stack = AsyncExitStack()
-        self.bedrock = boto3.client(
-            service_name='bedrock-runtime',
-            region_name='us-east-1'
-        )
+        self.client = OpenAI(base_url="http://localhost:8080/v1", api_key="dummy")
+        # self.bedrock = boto3.client(
+        #     service_name='bedrock-runtime',
+        #     region_name='us-east-1'
+        # )
         self._streams_context = []
         self.tool_session_map = {}
 
@@ -71,7 +73,8 @@ class MCPClient:
 
     async def process_query(self, query: str) -> str:
         """Process a query using Claude and available tools"""
-        messages = [Message.user(query).__dict__]
+        """Process a query using vLLM and available tools"""
+        messages = [MessageVllm.user(query).__dict__]
 
         response = [await s.list_tools() for s in self.session]
         available_tools = []
@@ -81,10 +84,18 @@ class MCPClient:
                 "description": tool.description,
                 "input_schema": tool.inputSchema
             } for tool in r.tools]
-        bedrock_tools = Message.to_bedrock_format(available_tools)
-        response = self.make_bedrock_request(messages, bedrock_tools)
+        vllm_tools = MessageVllm.to_vllm_format(available_tools)
+
+        # Call vLLM endpoint
+        response = self.client.chat.completions.create(
+            model=self.MODEL_ID,
+            messages=messages,
+            tools=vllm_tools,
+            tool_choice="auto"
+        )
+
         return await self._process_response(
-          response, messages, bedrock_tools
+          response, messages, vllm_tools
         )
 
     async def _process_response(self, response: Dict, messages: List[Dict], bedrock_tools: List[Dict]) -> str:
@@ -98,7 +109,7 @@ class MCPClient:
                 for item in response['output']['message']['content']:
                     if 'text' in item:
                         final_text.append(f"[Thinking: {item['text']}]")
-                        messages.append(Message.assistant(item['text']).__dict__)
+                        messages.append(MessageVllm.assistant(item['text']).__dict__)
                     elif 'toolUse' in item:
                         tool_info = item['toolUse']
                         result = await self._handle_tool_call(tool_info, messages)

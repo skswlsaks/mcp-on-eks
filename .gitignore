@@ -12,3 +12,4 @@ wheels/
 *.ipynb
 *.vscode
 .DS_Store
+remember.txt

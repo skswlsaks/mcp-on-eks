@@ -6,7 +6,7 @@ from src.mcpclient.model import Prompt
 from src.mcpclient.mcpclient import MCPClient
 
 mcp_servers = {
-    "s3": "http://localhost:8080/sse",
+    # "s3": "http://localhost:8080/sse",
     "financial_data": "http://localhost:8081/sse",
     "financial_analysis": "http://localhost:8082/sse",
 }

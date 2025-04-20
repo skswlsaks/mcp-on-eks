@@ -73,23 +73,19 @@ async def map_ticker_to_cik(ticker: str) -> str:
         return f"Could not find CIK for ticker {ticker}"
 
 @mcp.tool()
-async def get_stock_price_data(ticker_symbol, end_date=None, start_date=None):
+async def get_stock_price_data(ticker_symbol):
     """
     Fetch historical price data for a given stock ticker using Yahoo Finance
 
     Args: \n
         `ticker_symbol` (str): Stock ticker symbol
-        `end_date` (str): End date in YYYY-MM-DD format, today's date will become an input if end_date is not specified (default: today)
-        `start_date` (str): Start date in YYYY-MM-DD format (default: 60 days ago)
 
     Returns: \n
         pandas.DataFrame: DataFrame containing price data
     """
-    if not end_date:
-        end_date = date.today()
+    end_date = date.today()
     # Set default dates if not provided
-    if not start_date:
-        start_date = end_date - timedelta(days=60)
+    start_date = end_date - timedelta(days=60)
 
     # Create ticker object
     ticker = yf.Ticker(ticker_symbol)
