@@ -1,8 +1,5 @@
 import click
 import uvicorn
-from datetime import datetime, timezone
-import yfinance as yf
-import httpx
 from fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
@@ -71,7 +68,7 @@ def main_server(port: int, transport: str) -> int:
     starlette_app = Starlette(
         debug=True,
         routes=[
-            Route("/sse", endpoint=handle_sse),
+            Route("/", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )

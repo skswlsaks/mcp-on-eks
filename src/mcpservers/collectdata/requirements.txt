@@ -1,0 +1,6 @@
+fastmcp==0.4.1
+yfinance
+httpx
+fastapi
+uvicorn
+click

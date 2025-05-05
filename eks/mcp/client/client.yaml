@@ -1,0 +1,38 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-client
+  namespace: mcp-client
+  labels:
+    app: mcp-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-client
+  template:
+    metadata:
+      labels:
+        app: mcp-client
+    spec:
+      containers:
+      - name: mcp-client
+        image:
+        ports:
+        - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server-service
+  namespace: mcp-client
+spec:
+  selector:
+    app: mcp-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer

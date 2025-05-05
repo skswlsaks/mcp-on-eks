@@ -13,3 +13,4 @@ wheels/
 *.vscode
 .DS_Store
 remember.txt
+.terraform

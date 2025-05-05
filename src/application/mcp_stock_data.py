@@ -1,16 +1,34 @@
-import click
-import uvicorn
+import sys
+import httpx
+import logging
+import pandas as pd
 from datetime import date, timedelta
 import yfinance as yf
-import httpx
+
 from fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
-from starlette.applications import Starlette
-from starlette.routing import Mount, Route
 
+logging.basicConfig(
+    level=logging.INFO,  # Default to INFO level
+    format='%(filename)s:%(lineno)d | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
+logger = logging.getLogger("aws-cli")
 
-# Initialize FastMCP server
-mcp = FastMCP("stock_data")
+try:
+    mcp = FastMCP(
+        name = "stock_data",
+        instructions=(
+            "You are a helpful assistant. "
+            "You can use tools for the user's question and provide the answer."
+        ),
+    )
+    logger.info("MCP server initialized successfully")
+except Exception as e:
+        err_msg = f"Error: {str(e)}"
+        logger.info(f"{err_msg}")
+
 
 
 @mcp.tool()
@@ -72,6 +90,7 @@ async def map_ticker_to_cik(ticker: str) -> str:
 
         return f"Could not find CIK for ticker {ticker}"
 
+
 @mcp.tool()
 async def get_stock_price_data(ticker_symbol):
     """
@@ -98,6 +117,7 @@ async def get_stock_price_data(ticker_symbol):
     return df.to_json()
 
 
+
 @mcp.tool()
 async def get_moodys_aaa_bond_yield() -> str:
     """
@@ -118,37 +138,7 @@ async def get_moodys_aaa_bond_yield() -> str:
     return float(current_yield)
 
 
-@click.command()
-@click.option("--port", default=8080)
-@click.option(
-    "--transport",
-    type=click.Choice(["stdio", "sse"]),
-    default="stdio",
-    help="Transport type",
-)
-def main_server(port: int, transport: str) -> int:
+if __name__ =="__main__":
+    print(f"###### main ######")
+    mcp.run(transport="stdio")
 
-    sse = SseServerTransport("/messages/")
-
-    async def handle_sse(request):
-        async with sse.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await mcp._mcp_server.run(
-                streams[0], streams[1], mcp._mcp_server.create_initialization_options()
-            )
-
-    starlette_app = Starlette(
-        debug=True,
-        routes=[
-            Route("/", endpoint=handle_sse),
-            Mount("/messages/", app=sse.handle_post_message),
-        ],
-    )
-
-    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
-
-    return 0
-
-if __name__ == "__main__":
-    main_server()
