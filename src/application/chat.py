@@ -4,7 +4,6 @@ import os
 import json
 import re
 import uuid
-import time
 import base64
 import info
 import PyPDF2
@@ -23,11 +22,9 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.tools import tool
 from langchain.docstore.document import Document
 from tavily import TavilyClient
-from langchain_community.tools.tavily_search import TavilySearchResults
 from urllib import parse
 from pydantic.v1 import BaseModel, Field
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
@@ -1685,6 +1682,17 @@ def tool_info(tools, st):
 def show_status_message(response, st):
     image_url = []
     references = []
+    chart_data = None
+    needs_chart = False
+
+    # Check if the query asks for a chart
+    for msg in response:
+        if isinstance(msg, HumanMessage):
+            query_text = msg.content.lower()
+            if any(term in query_text for term in ['line chart', 'plot', 'graph', 'trend', 'visualization']):
+                needs_chart = True
+                break
+
     for i, re in enumerate(response):
         logger.info(f"message[{i}]: {re}")
 
@@ -1714,8 +1722,6 @@ def show_status_message(response, st):
                     elif re.tool_calls[0]['args']:
                         if debug_mode == "Enable":
                             st.info(f"Tool name: {re.tool_calls[0]['name']}  \nTool args: {re.tool_calls[0]['args']}")
-            # else:
-            #     st.info(f"Tool name: {re.tool_calls[0]['name']}")
 
         elif isinstance(re, ToolMessage):
             if re.name:
@@ -1741,7 +1747,6 @@ def show_status_message(response, st):
                         logger.info(f"item[{i}]: {item}")
                         if "Title:" in item and "URL:" in item and "Content:" in item:
                             try:
-                                # 정규식 대신 문자열 분할 방법 사용
                                 title_part = item.split("Title:")[1].split("URL:")[0].strip()
                                 url_part = item.split("URL:")[1].split("Content:")[0].strip()
                                 content_part = item.split("Content:")[1].strip()
@@ -1766,11 +1771,32 @@ def show_status_message(response, st):
                 else:
                     tool_result = re.content
                     logger.info(f"tool_result (not JSON): {tool_result}")
-                print("tool result tupe", type(tool_result))
+                logger.info(f"tool result type: {type(tool_result)}")
 
-                if isinstance(tool_result, pd.DataFrame):
-                    logger.info("Parse dataframe...............")
-                    st.dataframe(tool_result)
+                # Handle DataFrame
+                if isinstance(tool_result, dict) and tool_result.get('Date'):
+                    try:
+                        # Try to convert JSON string to DataFrame
+                        df = pd.DataFrame(tool_result)
+                        if 'Date' in df.columns:
+                            df['Date'] = pd.to_datetime(df['Date'], unit='ms')
+                            df = df.sort_values('Date')
+
+                        # Store data for potential chart
+                        chart_data = df
+
+                        # Display as table
+                        st.dataframe(df)
+
+                        # If chart is needed and we have appropriate columns
+                        if needs_chart and 'Date' in df.columns:
+                            numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+                            if len(numeric_cols) > 0:
+                                st.line_chart(data=df, x='Date', y=numeric_cols.tolist())
+                    except Exception as e:
+                        logger.error(f"Error converting to DataFrame: {str(e)}")
+
+                # Handle paths and images
                 if "path" in tool_result:
                     logger.info(f"Path: {tool_result['path']}")
 

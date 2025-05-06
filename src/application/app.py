@@ -90,7 +90,7 @@ with st.sidebar:
     # Change radio to checkbox
     mcp_options = ["code interpreter", "aws document", "aws cost", "aws cli", "aws cloudwatch", "aws storage", "image generation", "aws diagram", "filesystem", "terminal",  "playwright", "stock data", "stock analysis", "사용자 설정"]
     mcp_selections = {}
-    default_selections = ["default", "tavily", "playwright", "code interpreter"]
+    default_selections = ["default", "stock data"]
 
     with st.expander("MCP 옵션 선택", expanded=True):
         for option in mcp_options:
