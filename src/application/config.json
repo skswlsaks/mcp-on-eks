@@ -1,0 +1,13 @@
+{
+    "region": "ap-northeast-2",
+    "projectName": "Amazon EKS - MCP",
+    "accountId": "XXXXXXXXXXXX",
+    "sharing_url": "",
+    "s3_bucket": "",
+    "mcp": "{    \"mcpServers\": {        \"playwright\": {            \"command\": \"npx\",            \"args\": [\"@playwright/mcp@latest\"]        }    }}",
+    "knowledge_base_role": "",
+    "collectionArn": "",
+    "opensearch_url": "",
+    "s3_arn": "",
+    "seed_image": ""
+}

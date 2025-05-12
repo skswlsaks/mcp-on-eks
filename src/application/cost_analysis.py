@@ -4,7 +4,7 @@ import json
 import pandas as pd
 import plotly.express as px
 import traceback
-import chat
+import chat as chat
 
 from datetime import datetime, timedelta
 from langchain_core.prompts import ChatPromptTemplate
@@ -18,7 +18,7 @@ def get_cost_analysis(days: str=30):
     try:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-        
+
         # cost explorer
         ce = boto3.client('ce')
 
@@ -33,7 +33,7 @@ def get_cost_analysis(days: str=30):
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
         )
         # logger.info(f"Service Cost: {service_response}")
-        
+
         service_costs = pd.DataFrame([
             {
                 'SERVICE': group['Keys'][0],
@@ -42,7 +42,7 @@ def get_cost_analysis(days: str=30):
             for group in service_response['ResultsByTime'][0]['Groups']
         ])
         logger.info(f"Service Costs: {service_costs}")
-        
+
         # region cost
         region_response = ce.get_cost_and_usage(
             TimePeriod={
@@ -54,7 +54,7 @@ def get_cost_analysis(days: str=30):
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'REGION'}]
         )
         # logger.info(f"Region Cost: {region_response}")
-        
+
         region_costs = pd.DataFrame([
             {
                 'REGION': group['Keys'][0],
@@ -63,7 +63,7 @@ def get_cost_analysis(days: str=30):
             for group in region_response['ResultsByTime'][0]['Groups']
         ])
         logger.info(f"Region Costs: {region_costs}")
-        
+
         # Daily Cost
         daily_response = ce.get_cost_and_usage(
             TimePeriod={
@@ -75,7 +75,7 @@ def get_cost_analysis(days: str=30):
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
         )
         # logger.info(f"Daily Cost: {daily_response}")
-        
+
         daily_costs = []
         for time_period in daily_response['ResultsByTime']:
             date = time_period['TimePeriod']['Start']
@@ -85,16 +85,16 @@ def get_cost_analysis(days: str=30):
                     'SERVICE': group['Keys'][0],
                     'cost': float(group['Metrics']['UnblendedCost']['Amount'])
                 })
-        
+
         daily_costs_df = pd.DataFrame(daily_costs)
         logger.info(f"Daily Costs: {daily_costs_df}")
-        
+
         return {
             'service_costs': service_costs,
             'region_costs': region_costs,
             'daily_costs': daily_costs_df
         }
-        
+
     except Exception as e:
         logger.info(f"Error in cost analysis: {str(e)}")
         return None
@@ -106,9 +106,9 @@ def create_cost_visualizations(cost_data):
     if not cost_data:
         logger.info("No cost data available")
         return None
-        
+
     visualizations = {}
-    
+
     # service cost (pie chart)
     fig_pie = px.pie(
         cost_data['service_costs'],
@@ -117,7 +117,7 @@ def create_cost_visualizations(cost_data):
         title='Service Cost'
     )
     visualizations['service_pie'] = fig_pie
-            
+
     # daily trend cost (line chart)
     fig_line = px.line(
         cost_data['daily_costs'],
@@ -127,7 +127,7 @@ def create_cost_visualizations(cost_data):
         title='Daily Cost Trend'
     )
     visualizations['daily_trend'] = fig_line
-    
+
     # region cost (bar chart)
     fig_bar = px.bar(
         cost_data['region_costs'],
@@ -136,7 +136,7 @@ def create_cost_visualizations(cost_data):
         title='Region Cost'
     )
     visualizations['region_bar'] = fig_bar
-    
+
     logger.info(f"Visualizations created: {list(visualizations.keys())}")
     return visualizations
 
@@ -160,13 +160,13 @@ def generate_cost_insights():
         "다음 AWS 비용 데이터를 분석하여 상세한 인사이트를 제공해주세요:"
         "Cost Data:"
         "{raw_cost}"
-        
+
         "다음 항목들에 대해 분석해주세요:"
         "1. 주요 비용 발생 요인"
         "2. 비정상적인 패턴이나 급격한 비용 증가"
         "3. 비용 최적화가 가능한 영역"
         "4. 전반적인 비용 추세와 향후 예측"
-        
+
         "분석 결과를 다음과 같은 형식으로 제공해주세요:"
 
         "### 주요 비용 발생 요인"
@@ -180,10 +180,10 @@ def generate_cost_insights():
 
         "### 비용 추세"
         "- [추세 분석 및 예측]"
-    ) 
+    )
 
     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
-    # logger.info('prompt: ', prompt)    
+    # logger.info('prompt: ', prompt)
 
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm
@@ -200,9 +200,9 @@ def generate_cost_insights():
 
     except Exception:
         err_msg = traceback.format_exc()
-        logger.debug(f"error message: {err_msg}")                    
+        logger.debug(f"error message: {err_msg}")
         raise Exception ("Not able to request to LLM")
-    
+
     return response.content
 
 cost_data = {}
@@ -217,13 +217,13 @@ def get_visualiation():
         if cost_data:
             logger.info(f"No cost data available")
 
-            # draw visualizations        
+            # draw visualizations
             visualizations = create_cost_visualizations(cost_data)
 
     except Exception as e:
-        logger.info(f"Error to earn cost data: {str(e)}")   
+        logger.info(f"Error to earn cost data: {str(e)}")
 
-get_visualiation() 
+get_visualiation()
 
 def ask_cost_insights(question):
     if cost_data:
@@ -245,11 +245,11 @@ def ask_cost_insights(question):
         "Question: {question}"
 
         "Cost Data:"
-        "{raw_cost}"        
-    ) 
+        "{raw_cost}"
+    )
 
     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
-    # logger.info('prompt: ', prompt)    
+    # logger.info('prompt: ', prompt)
 
     llm = chat.get_chat()
     chain = prompt | llm
@@ -267,7 +267,7 @@ def ask_cost_insights(question):
 
     except Exception:
         err_msg = traceback.format_exc()
-        logger.debug(f"error message: {err_msg}")                    
+        logger.debug(f"error message: {err_msg}")
         raise Exception ("Not able to request to LLM")
-    
+
     return response.content

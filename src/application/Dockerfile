@@ -14,9 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-EXPOSE 8000
+EXPOSE 8501
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-CMD ["uvicorn", "collectdata:app", "--host 0.0.0.0", "--port 8000"]
+# Run streamlit
+ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

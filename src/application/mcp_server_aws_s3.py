@@ -3,7 +3,7 @@ import sys
 import mcp_s3 as storage
 
 from typing import Dict, Optional, Any
-from mcp.server.fastmcp import FastMCP 
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -45,11 +45,11 @@ async def list_buckets(
     logger.info(f"list_buckets --> start_after: {start_after}, max_buckets: {max_buckets}, region: {region}")
 
     return await storage.list_buckets(start_after, max_buckets, region)
-    
-@mcp.tool()  
+
+@mcp.tool()
 async def list_objects(
-    bucket_name: str, 
-    prefix: Optional[str] = "", 
+    bucket_name: str,
+    prefix: Optional[str] = "",
     max_keys: Optional[int] = 1000,
     region: Optional[str] = "us-west-2"
 ) -> List[dict]:
@@ -65,7 +65,7 @@ async def list_objects(
 
     return await storage.list_objects(bucket_name, prefix, max_keys, region)
 
-@mcp.tool()    
+@mcp.tool()
 async def list_resources(
     start_after: Optional[str] = None,
     max_buckets: Optional[int] = 10,
@@ -77,9 +77,9 @@ async def list_resources(
         start_after: Start listing after this bucket name
     """
     logger.info(f"list_resources --> start_after: {start_after}, max_buckets: {max_buckets}, region: {region}")
-    
+
     return await storage.list_resources(start_after, max_buckets, region)
-    
+
 ######################################
 # AWS Logs
 ######################################

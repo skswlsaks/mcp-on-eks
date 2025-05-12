@@ -2,7 +2,7 @@ import re
 import base64
 import logging
 import traceback
-import chat 
+import chat
 import sys
 import uuid
 
@@ -23,7 +23,7 @@ repl = PythonAstREPLTool()
 
 def repl_coder(code):
     """
-    Use this to execute python code and do math. 
+    Use this to execute python code and do math.
     If you want to see the output of a value, you should print it out with `print(...)`. This is visible to the user.
     code: the Python code was written in English
     """
@@ -31,7 +31,7 @@ def repl_coder(code):
         result = repl.run(code)
     except BaseException as e:
         return f"Failed to execute. Error: {repr(e)}"
-    
+
     if result is None:
         result = "It didn't return anything."
 
@@ -50,8 +50,8 @@ def repl_drawer(code):
     When a comparison is made, all arrays must be of the same length.
     code: the Python code was written in English
     return: the url of graph
-    """ 
-        
+    """
+
     code = re.sub(r"seaborn", "classic", code)
     code = re.sub(r"plt.savefig", "#plt.savefig", code)
     code = re.sub(r"plt.show", "#plt.show", code)
@@ -66,15 +66,15 @@ image_base64 = base64.b64encode(buffer.getvalue()).decode()
 
 print(image_base64)
 """
-    code = code + post    
+    code = code + post
     logger.info(f"code: {code}")
-    
+
     image_url = ""
-    try:     
+    try:
         resp = repl.run(code)
 
         base64Img = resp
-        
+
         if base64Img:
             byteImage = BytesIO(base64.b64decode(base64Img))
 

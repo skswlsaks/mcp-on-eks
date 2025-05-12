@@ -1,11 +1,10 @@
 import logging
 import sys
 import mcp_log as log
-import mcp_rag as rag
 import mcp_s3 as storage
 import mcp_coder as coder
 
-from mcp.server.fastmcp import FastMCP 
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -29,19 +28,6 @@ except Exception as e:
         err_msg = f"Error: {str(e)}"
         logger.info(f"{err_msg}")
 
-######################################
-# RAG
-######################################
-@mcp.tool()
-def search(keyword: str) -> str:
-    """
-    Search the knowledge base with the given keyword.
-    keyword: the keyword to search
-    return: the result of search
-    """
-    logger.info(f"search --> keyword: {keyword}")
-
-    return rag.retrieve_knowledge_base(keyword)
 
 ######################################
 # Code Interpreter
@@ -49,12 +35,12 @@ def search(keyword: str) -> str:
 @mcp.tool()
 def repl_coder(code):
     """
-    Use this to execute python code and do math. 
+    Use this to execute python code and do math.
     If you want to see the output of a value, you should print it out with `print(...)`. This is visible to the user.
     code: the Python code was written in English
     """
     logger.info(f"repl_coder --> code: {code}")
-    
+
     return coder.repl_coder(code)
 
 @mcp.tool()
@@ -67,9 +53,9 @@ def repl_drawer(code):
     When a comparison is made, all arrays must be of the same length.
     code: the Python code was written in English
     return: the url of graph
-    """ 
+    """
     logger.info(f"repl_drawer --> code: {code}")
-        
+
     return coder.repl_drawer(code)
 
 ######################################
@@ -124,11 +110,11 @@ async def list_buckets(
     logger.info(f"list_buckets --> start_after: {start_after}, max_buckets: {max_buckets}, region: {region}")
 
     return await storage.list_buckets(start_after, max_buckets, region)
-    
-@mcp.tool()  
+
+@mcp.tool()
 async def list_objects(
-    bucket_name: str, 
-    prefix: Optional[str] = "", 
+    bucket_name: str,
+    prefix: Optional[str] = "",
     max_keys: Optional[int] = 1000,
     region: Optional[str] = "us-west-2"
 ) -> List[dict]:
@@ -144,7 +130,7 @@ async def list_objects(
 
     return await storage.list_objects(bucket_name, prefix, max_keys, region)
 
-@mcp.tool()    
+@mcp.tool()
 async def list_resources(
     start_after: Optional[str] = None,
     max_buckets: Optional[int] = 10,
@@ -156,9 +142,9 @@ async def list_resources(
         start_after: Start listing after this bucket name
     """
     logger.info(f"list_resources --> start_after: {start_after}, max_buckets: {max_buckets}, region: {region}")
-    
+
     return await storage.list_resources(start_after, max_buckets, region)
-    
+
 ######################################
 # AWS Logs
 ######################################

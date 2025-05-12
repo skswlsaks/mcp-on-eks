@@ -17,9 +17,9 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-bedrock_region = os.environ.get('bedrock_region') if os.environ.get('bedrock_region') else "ap-northeast-2"
-modelId = os.environ.get('modelId') if os.environ.get('modelId') else "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
-model_type = os.environ.get('model_type') if os.environ.get('model_type') else "claude"
+bedrock_region = os.environ.get('region') if os.environ.get('region') else "ap-northeast-2"
+modelId = os.environ.get('modelid') if os.environ.get('modelid') else "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+model_type = os.environ.get('modeltype') if os.environ.get('modeltype') else "claude"
 path = "sharing"
 
 knowledge_base_id = ""
@@ -229,6 +229,7 @@ async def retrieve_knowledge_base(event: Event):
     # retrieve knowledge_base_id
     if not knowledge_base_id:
         try:
+            print(bedrock_region)
             client = boto3.client(
                 service_name='bedrock-agent',
                 region_name=bedrock_region

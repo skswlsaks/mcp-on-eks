@@ -1,0 +1,12 @@
+langchain_aws==0.2.22
+botocore==1.38.9
+langchain_core==0.3.58
+langchain==0.3.25
+fastmcp==2.2.8
+langchain_mcp_adapters==0.0.11
+streamlit==1.45.0
+pandas==2.2.3
+pyPDF2==3.0.1
+langgraph==0.4.1
+plotly==6.0.1
+yfinance==0.2.58

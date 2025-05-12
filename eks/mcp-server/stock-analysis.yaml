@@ -1,0 +1,59 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-stock-analysis
+  namespace: mcp-server
+  labels:
+    app: mcp-stock-analysis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-stock-analysis
+  template:
+    metadata:
+      labels:
+        app: mcp-stock-analysis
+    spec:
+      containers:
+      - name: mcp-stock-analysis
+        image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:analysis
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        imagePullPolicy: Always
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-stock-analysis-service
+  namespace: mcp-server
+spec:
+  selector:
+    app: mcp-stock-analysis
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP

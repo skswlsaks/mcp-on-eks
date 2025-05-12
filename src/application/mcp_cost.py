@@ -10,9 +10,8 @@ import plotly.io as pio
 import random
 import traceback
 
-from typing import Dict, Optional, Any
 from datetime import datetime, timedelta
-from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -30,11 +29,11 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
     Parameters:
         days: the period of the data, e.g., 30
         region: The region of aws infrastructure, e.g., us-west-2
-    """   
+    """
     try:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-        
+
         # cost explorer
         ce = boto3.client(
             service_name='ce',
@@ -51,7 +50,7 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
             Metrics=['UnblendedCost'],
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
         )
-        
+
         service_costs = pd.DataFrame([
             {
                 'SERVICE': group['Keys'][0],
@@ -60,7 +59,7 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
             for group in service_response['ResultsByTime'][0]['Groups']
         ])
         logger.info(f"Service Cost: {service_response}")
-        
+
         # region cost
         region_response = ce.get_cost_and_usage(
             TimePeriod={
@@ -72,7 +71,7 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'REGION'}]
         )
         logger.info(f"Region Cost: {region_response}")
-        
+
         region_costs = pd.DataFrame([
             {
                 'REGION': group['Keys'][0],
@@ -80,7 +79,7 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
             }
             for group in region_response['ResultsByTime'][0]['Groups']
         ])
-        
+
         # Daily Cost
         daily_response = ce.get_cost_and_usage(
             TimePeriod={
@@ -92,7 +91,7 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
         )
         logger.info(f"Daily Cost: {daily_response}")
-        
+
         daily_costs = []
         for time_period in daily_response['ResultsByTime']:
             date = time_period['TimePeriod']['Start']
@@ -102,10 +101,10 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
                     'SERVICE': group['Keys'][0],
                     'cost': float(group['Metrics']['UnblendedCost']['Amount'])
                 })
-        
+
         daily_costs_df = pd.DataFrame(daily_costs)
         logger.info(f"Daily Cost (df): {daily_costs_df}")
-        
+
         global cost_data
         cost_data = {
             'service_costs': service_costs,
@@ -113,7 +112,7 @@ def get_cost_analysis(days: int=30, region: str="us-west-2"):
             'daily_costs': daily_costs_df
         }
         return cost_data
-        
+
     except Exception as e:
         logger.info(f"Error in cost analysis: {str(e)}")
         return None
@@ -125,12 +124,12 @@ def get_url(figure, prefix):
 
     random_id = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=8))
     image_filename = f'{prefix}_{random_id}.png'
-    
+
     # Convert base64 string back to bytes for S3 upload
     image_bytes = base64.b64decode(base64_image)
     url = chat.upload_to_s3(image_bytes, image_filename)
     logger.info(f"Uploaded image to S3: {url}")
-    
+
     return url
 
 def create_cost_visualizations():
@@ -140,18 +139,18 @@ def create_cost_visualizations():
     if not cost_data:
         logger.info("No cost data available")
         return None
-        
+
     paths = []
-    
+
     # service cost (pie chart)
     fig_pie = px.pie(
         cost_data['service_costs'],
         values='cost',
         names='SERVICE',
         title='Service Cost'
-    )    
+    )
     paths.append(get_url(fig_pie, "service_costs"))
-            
+
     # daily trend cost (line chart)
     fig_line = px.line(
         cost_data['daily_costs'],
@@ -161,7 +160,7 @@ def create_cost_visualizations():
         title='Daily Cost Trend'
     )
     paths.append(get_url(fig_line, "daily_costs"))
-    
+
     # region cost (bar chart)
     fig_bar = px.bar(
         cost_data['region_costs'],
@@ -170,7 +169,7 @@ def create_cost_visualizations():
         title='Region Cost'
     )
     paths.append(get_url(fig_bar, "region_costs"))
-    
+
     logger.info(f"paths: {paths}")
 
     return {
@@ -197,13 +196,13 @@ def generate_cost_insights():
         "다음 AWS 비용 데이터를 분석하여 상세한 인사이트를 제공해주세요:"
         "Cost Data:"
         "{raw_cost}"
-        
+
         "다음 항목들에 대해 분석해주세요:"
         "1. 주요 비용 발생 요인"
         "2. 비정상적인 패턴이나 급격한 비용 증가"
         "3. 비용 최적화가 가능한 영역"
         "4. 전반적인 비용 추세와 향후 예측"
-        
+
         "분석 결과를 다음과 같은 형식으로 제공해주세요:"
 
         "### 주요 비용 발생 요인"
@@ -217,10 +216,10 @@ def generate_cost_insights():
 
         "### 비용 추세"
         "- [추세 분석 및 예측]"
-    ) 
+    )
 
     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
-    # logger.info('prompt: ', prompt)    
+    # logger.info('prompt: ', prompt)
 
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm
@@ -237,9 +236,9 @@ def generate_cost_insights():
 
     except Exception:
         err_msg = traceback.format_exc()
-        logger.debug(f"error message: {err_msg}")                    
+        logger.debug(f"error message: {err_msg}")
         raise Exception ("Not able to request to LLM")
-    
+
     return response.content
 
 def ask_cost_insights(question):
@@ -262,11 +261,11 @@ def ask_cost_insights(question):
         "Question: {question}"
 
         "Cost Data:"
-        "{raw_cost}"        
-    ) 
+        "{raw_cost}"
+    )
 
     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
-    # logger.info('prompt: ', prompt)    
+    # logger.info('prompt: ', prompt)
 
     llm = chat.get_chat()
     chain = prompt | llm
@@ -284,7 +283,7 @@ def ask_cost_insights(question):
 
     except Exception:
         err_msg = traceback.format_exc()
-        logger.debug(f"error message: {err_msg}")                    
+        logger.debug(f"error message: {err_msg}")
         raise Exception ("Not able to request to LLM")
-    
+
     return response.content

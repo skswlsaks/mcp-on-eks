@@ -1,6 +1,4 @@
-fastmcp==0.4.1
+fastmcp==2.2.8
 yfinance
 httpx
-fastapi
-uvicorn
 click

@@ -1,9 +1,8 @@
 import logging
 import sys
-import mcp_basic
 import subprocess
 
-from mcp.server.fastmcp import FastMCP 
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -32,7 +31,7 @@ except Exception as e:
 # AWS CLI
 ######################################
 
-@mcp.tool()    
+@mcp.tool()
 def run_aws_cli(command: str, subcommand: str, options: str) -> str:
     """
     run aws command using aws cli and then return the result
@@ -40,17 +39,17 @@ def run_aws_cli(command: str, subcommand: str, options: str) -> str:
     subcommand: subcommand for the AWS CLI command (e.g., ls, cp, get-object)
     options: additional options for the command (e.g., --bucket mybucket)
     return: command output as string
-    """   
+    """
     logger.info(f"run_aws_cli_ommand --> command: {command}, subcommand: {subcommand}, options: {options}")
-    
+
     # 명령어 구성
     cmd = ['aws', command, subcommand]
     logger.info(f"run_aws_cli_ommand --> cmd: {cmd}")
-    
+
     if options:
         options_list = options.split()
         cmd.extend(options_list)
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout

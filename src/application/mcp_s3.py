@@ -42,7 +42,7 @@ def _get_configured_buckets() -> List[str]:
         buckets.append(bucket.strip())
         i += 1
 
-    return buckets            
+    return buckets
 
 configured_buckets = _get_configured_buckets()
 
@@ -91,8 +91,8 @@ async def list_buckets(
             return buckets[:max_buckets]
 
 async def list_objects(
-    bucket_name: str, 
-    prefix: Optional[str] = "", 
+    bucket_name: str,
+    prefix: Optional[str] = "",
     max_keys: Optional[int] = 1000,
     region: Optional[str] = "us-west-2"
 ) -> List[dict]:
@@ -115,7 +115,7 @@ async def list_objects(
             MaxKeys=max_keys
         )
         return response.get('Contents', [])
-    
+
 async def list_resources(
     start_after: Optional[str] = None,
     max_buckets: Optional[int] = 10,
@@ -128,7 +128,7 @@ async def list_resources(
     """
     resources = []
     logger.debug("Starting to list resources")
-    
+
     logger.debug(f"Configured buckets: {configured_buckets}")
 
     try:

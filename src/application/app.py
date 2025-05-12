@@ -1,12 +1,8 @@
 import streamlit as st
-import chat
+import chat as chat
 import utils
 import json
-# import knowledge_base as kb
 import cost_analysis as cost
-# import supervisor
-# import router
-# import swarm
 import traceback
 import mcp_config
 
@@ -88,9 +84,23 @@ with st.sidebar:
     st.subheader("⚙️ MCP Config")
 
     # Change radio to checkbox
-    mcp_options = ["code interpreter", "aws document", "aws cost", "aws cli", "aws cloudwatch", "aws storage", "image generation", "aws diagram", "filesystem", "terminal",  "playwright", "stock data", "stock analysis", "사용자 설정"]
+    mcp_options = [
+        "default",
+        "playwright",
+        "aws diagram",
+        "aws document",
+        "aws cost",
+        "aws cloudwatch",
+        "aws storage",
+        "code interpreter",
+        "aws cli",
+        "terminal",
+        "stock data",
+        "stock analysis",
+        "stock rag"
+    ]
     mcp_selections = {}
-    default_selections = ["default", "stock data"]
+    default_selections = ["default"]
 
     with st.expander("MCP 옵션 선택", expanded=True):
         for option in mcp_options:
@@ -99,18 +109,6 @@ with st.sidebar:
 
     if not any(mcp_selections.values()):
         mcp_selections["default"] = True
-
-    if mcp_selections["사용자 설정"]:
-        mcp_info = st.text_area(
-            "MCP 설정을 JSON 형식으로 입력하세요",
-            value=mcp,
-            height=150
-        )
-        logger.info(f"mcp_info: {mcp_info}")
-
-        if mcp_info:
-            mcp_config.mcp_user_config = json.loads(mcp_info)
-            logger.info(f"mcp_user_config: {mcp_config.mcp_user_config}")
 
 
     mcp = mcp_config.load_selected_config(mcp_selections)

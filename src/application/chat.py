@@ -21,7 +21,6 @@ from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.tools import tool
 from langchain.docstore.document import Document
-from tavily import TavilyClient
 from urllib import parse
 from pydantic.v1 import BaseModel, Field
 from langchain_core.output_parsers import StrOutputParser
@@ -58,6 +57,11 @@ checkpointers[userId] = checkpointer
 memorystores[userId] = memorystore
 
 reasoning_mode = 'Disable'
+
+bedrock_region = os.environ.get("REGION") if os.environ.get("REGION") else "ap-northeast-2"
+modelId = os.environ.get("MODELID") if os.environ.get("MODELID") else "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+model_name = 'Claude 3.5 Sonnet'
+
 
 def initiate():
     global userId
@@ -134,11 +138,7 @@ MSG_LENGTH = 100
 
 doc_prefix = s3_prefix+'/'
 
-model_name = "Claude 3.5 Sonnet"
-model_type = "claude"
-models = info.get_model_info(model_name)
-number_of_models = len(models)
-model_id = models[0]["model_id"]
+
 debug_mode = "Enable"
 multi_region = "Disable"
 
@@ -149,16 +149,12 @@ client = boto3.client(
 
 mcp_json = ""
 def update(modelName, debugMode, multiRegion, mcp):
-    global model_name, model_id, model_type, debug_mode, multi_region
-    global models, mcp_json
+    global model_name, debug_mode, multi_region
+    global mcp_json
 
     if model_name != modelName:
         model_name = modelName
         logger.info(f"model_name: {model_name}")
-
-        models = info.get_model_info(model_name)
-        model_id = models[0]["model_id"]
-        model_type = models[0]["model_type"]
 
     if debug_mode != debugMode:
         debug_mode = debugMode
@@ -184,29 +180,11 @@ def save_chat_history(text, msg):
 
 selected_chat = 0
 def get_chat(extended_thinking):
-    global selected_chat, model_type
 
-    logger.info(f"models: {models}")
-    logger.info(f"selected_chat: {selected_chat}")
+    maxOutputTokens = 4096 # 4k
 
-    profile = models[selected_chat]
-    # print('profile: ', profile)
+    logger.info(f"LLM: {selected_chat}, bedrock_region: {bedrock_region}, modelId: {modelId}")
 
-    bedrock_region =  profile['bedrock_region']
-    modelId = profile['model_id']
-    model_type = profile['model_type']
-    if model_type == 'claude':
-        maxOutputTokens = 4096 # 4k
-    else:
-        maxOutputTokens = 5120 # 5k
-    number_of_models = len(models)
-
-    logger.info(f"LLM: {selected_chat}, bedrock_region: {bedrock_region}, modelId: {modelId}, model_type: {model_type}")
-
-    if profile['model_type'] == 'nova':
-        STOP_SEQUENCE = '"\n\n<thinking>", "\n<thinking>", " <thinking>"'
-    elif profile['model_type'] == 'claude':
-        STOP_SEQUENCE = "\n\nHuman:"
 
     # bedrock
     boto3_bedrock = boto3.client(
@@ -230,7 +208,7 @@ def get_chat(extended_thinking):
                 "type": "enabled",
                 "budget_tokens": thinking_budget
             },
-            "stop_sequences": [STOP_SEQUENCE]
+            "stop_sequences": ["\n\nHuman:"]
         }
     else:
         parameters = {
@@ -238,7 +216,7 @@ def get_chat(extended_thinking):
             "temperature":0.1,
             "top_k":250,
             "top_p":0.9,
-            "stop_sequences": [STOP_SEQUENCE]
+            "stop_sequences": ["\n\nHuman:"]
         }
 
     chat = ChatBedrock(   # new chat model
@@ -247,13 +225,6 @@ def get_chat(extended_thinking):
         model_kwargs=parameters,
         region_name=bedrock_region
     )
-
-    if multi_region=='Enable':
-        selected_chat = selected_chat + 1
-        if selected_chat == number_of_models:
-            selected_chat = 0
-    else:
-        selected_chat = 0
 
     return chat
 
@@ -342,40 +313,7 @@ secretsmanager = boto3.client(
     region_name=bedrock_region
 )
 
-# api key for weather
-weather_api_key = ""
-try:
-    pass
-    # get_weather_api_secret = secretsmanager.get_secret_value(
-    #     SecretId=f"openweathermap-{projectName}"
-    # )
-    # #print('get_weather_api_secret: ', get_weather_api_secret)
-    # secret = json.loads(get_weather_api_secret['SecretString'])
-    # #print('secret: ', secret)
-    # weather_api_key = secret['weather_api_key']
 
-except Exception as e:
-    raise e
-
-# api key to use LangSmith
-langsmith_api_key = ""
-try:
-    pass
-    # get_langsmith_api_secret = secretsmanager.get_secret_value(
-    #     SecretId=f"langsmithapikey-{projectName}"
-    # )
-    # #print('get_langsmith_api_secret: ', get_langsmith_api_secret)
-    # secret = json.loads(get_langsmith_api_secret['SecretString'])
-    # #print('secret: ', secret)
-    # langsmith_api_key = secret['langsmith_api_key']
-    # langchain_project = secret['langchain_project']
-except Exception as e:
-    raise e
-
-if langsmith_api_key:
-    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGCHAIN_PROJECT"] = langchain_project
 
 # secret of code interpreter
 code_interpreter_api_key = ""
@@ -398,46 +336,6 @@ except Exception as e:
 if code_interpreter_api_key:
     os.environ["RIZA_API_KEY"] = code_interpreter_api_key
 
-# api key to use Tavily Search
-tavily_key = tavily_api_wrapper = ""
-try:
-    pass
-    # get_tavily_api_secret = secretsmanager.get_secret_value(
-    #     SecretId=f"tavilyapikey-{projectName}"
-    # )
-    # #print('get_tavily_api_secret: ', get_tavily_api_secret)
-    # secret = json.loads(get_tavily_api_secret['SecretString'])
-    # #print('secret: ', secret)
-
-    # if "tavily_api_key" in secret:
-    #     tavily_key = secret['tavily_api_key']
-    #     #print('tavily_api_key: ', tavily_api_key)
-
-    #     if tavily_key:
-    #         tavily_api_wrapper = TavilySearchAPIWrapper(tavily_api_key=tavily_key)
-    #         #     os.environ["TAVILY_API_KEY"] = tavily_key
-
-    #     else:
-    #         logger.info(f"tavily_key is required.")
-except Exception as e:
-    logger.info(f"Tavily credential is required: {e}")
-    raise e
-
-# api key to use Tavily Search
-firecrawl_key = ""
-try:
-    pass
-    # get_firecrawl_secret = secretsmanager.get_secret_value(
-    #     SecretId=f"firecrawlapikey-{projectName}"
-    # )
-    # secret = json.loads(get_firecrawl_secret['SecretString'])
-
-    # if "firecrawl_api_key" in secret:
-    #     firecrawl_key = secret['firecrawl_api_key']
-    #     # print('firecrawl_api_key: ', firecrawl_key)
-except Exception as e:
-    logger.info(f"Firecrawl credential is required: {e}")
-    raise e
 
 def get_references(docs):
     reference = ""
@@ -491,33 +389,6 @@ def get_references(docs):
         reference = "\n\n#### 관련 문서\n"+reference
 
     return reference
-
-def tavily_search(query, k):
-    docs = []
-    try:
-        tavily_client = TavilyClient(api_key=tavily_key)
-        response = tavily_client.search(query, max_results=k)
-        # print('tavily response: ', response)
-
-        for r in response["results"]:
-            name = r.get("title")
-            if name is None:
-                name = 'WWW'
-
-            docs.append(
-                Document(
-                    page_content=r.get("content"),
-                    metadata={
-                        'name': name,
-                        'url': r.get("url"),
-                        'from': 'tavily'
-                    },
-                )
-            )
-    except Exception as e:
-        logger.info(f"Exception: {e}")
-
-    return docs
 
 def isKorean(text):
     # check korean
@@ -580,18 +451,10 @@ def extract_thinking_tag(response, st):
     return msg
 
 def get_parallel_processing_chat(models, selected):
-    global model_type
-    profile = models[selected]
-    bedrock_region =  profile['bedrock_region']
-    modelId = profile['model_id']
-    model_type = profile['model_type']
     maxOutputTokens = 4096
-    logger.info(f'selected_chat: {selected}, bedrock_region: {bedrock_region}, modelId: {modelId}, model_type: {model_type}')
+    logger.info(f'selected_chat: {selected}, bedrock_region: {bedrock_region}, modelId: {modelId}')
 
-    if profile['model_type'] == 'nova':
-        STOP_SEQUENCE = '"\n\n<thinking>", "\n<thinking>", " <thinking>"'
-    elif profile['model_type'] == 'claude':
-        STOP_SEQUENCE = "\n\nHuman:"
+    STOP_SEQUENCE = "\n\nHuman:"
 
     # bedrock
     boto3_bedrock = boto3.client(
@@ -1647,7 +1510,7 @@ def load_multiple_mcp_server_parameters():
                 url = config["url"]
                 server_info[server] = {
                     "url": url,
-                    "transport": "sse",
+                    "transport": "streamable_http",
                     # "reconnect": {
                     #     "enabled": True,
                     #     "maxAttempts": 5,
@@ -1739,30 +1602,6 @@ def show_status_message(response, st):
                     if debug_mode == "Enable":
                         st.info(f"Tool name: {re.name}")
             try:
-                # tavily
-                if isinstance(re.content, str) and "Title:" in re.content and "URL:" in re.content and "Content:" in re.content:
-                    logger.info("Tavily parsing...")
-                    items = re.content.split("\n\n")
-                    for i, item in enumerate(items):
-                        logger.info(f"item[{i}]: {item}")
-                        if "Title:" in item and "URL:" in item and "Content:" in item:
-                            try:
-                                title_part = item.split("Title:")[1].split("URL:")[0].strip()
-                                url_part = item.split("URL:")[1].split("Content:")[0].strip()
-                                content_part = item.split("Content:")[1].strip()
-
-                                logger.info(f"title_part: {title_part}")
-                                logger.info(f"url_part: {url_part}")
-                                logger.info(f"content_part: {content_part}")
-
-                                references.append({
-                                    "url": url_part,
-                                    "title": title_part,
-                                    "content": content_part[:100] + "..." if len(content_part) > 100 else content_part
-                                })
-                            except Exception as e:
-                                logger.info(f"파싱 오류: {str(e)}")
-                                continue
 
                 # check json format
                 if isinstance(re.content, str) and (re.content.strip().startswith('{') or re.content.strip().startswith('[')):

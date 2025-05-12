@@ -1,0 +1,58 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-collectdata
+  namespace: mcp-server
+  labels:
+    app: mcp-collectdata
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-collectdata
+  template:
+    metadata:
+      labels:
+        app: mcp-collectdata
+    spec:
+      containers:
+      - name: mcp-collectdata
+        image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:collectdata
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        imagePullPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-collectdata-service
+  namespace: mcp-server
+spec:
+  selector:
+    app: mcp-collectdata
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP

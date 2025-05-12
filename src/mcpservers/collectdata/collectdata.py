@@ -1,12 +1,9 @@
-import click
-import uvicorn
 from datetime import date, timedelta
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 import yfinance as yf
 import httpx
 from fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
-from starlette.applications import Starlette
-from starlette.routing import Mount, Route
 
 
 # Initialize FastMCP server
@@ -118,37 +115,11 @@ async def get_moodys_aaa_bond_yield() -> str:
     return float(current_yield)
 
 
-@click.command()
-@click.option("--port", default=8080)
-@click.option(
-    "--transport",
-    type=click.Choice(["stdio", "sse"]),
-    default="stdio",
-    help="Transport type",
-)
-def main_server(port: int, transport: str) -> int:
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    return JSONResponse({"status": "healthy"})
 
-    sse = SseServerTransport("/messages/")
-
-    async def handle_sse(request):
-        async with sse.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await mcp._mcp_server.run(
-                streams[0], streams[1], mcp._mcp_server.create_initialization_options()
-            )
-
-    starlette_app = Starlette(
-        debug=True,
-        routes=[
-            Route("/", endpoint=handle_sse),
-            Mount("/messages/", app=sse.handle_post_message),
-        ],
-    )
-
-    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
-
-    return 0
 
 if __name__ == "__main__":
-    main_server()
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000, path="/messages")
+

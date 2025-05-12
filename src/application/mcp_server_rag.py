@@ -1,9 +1,9 @@
+import os
 import logging
 import sys
-import mcp_rag as rag
+import requests
 
-from typing import Dict, Optional, Any
-from mcp.server.fastmcp import FastMCP 
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -13,6 +13,10 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("rag")
+
+# rag_url = os.environ.get("RAGURL") if os.environ.get("RAGURL") else "http://mcp-rag-service.mcp-server.svc.cluster.local"
+rag_url = os.environ.get("RAGURL") if os.environ.get("RAGURL") else "http://localhost:8000"
+kb_name = os.environ.get("KBNAME") if os.environ.get("KBNAME") else "kb-mcp-demo"
 
 try:
     mcp = FastMCP(
@@ -39,7 +43,12 @@ def rag_search(keyword: str) -> str:
     """
     logger.info(f"search --> keyword: {keyword}")
 
-    return rag.retrieve_knowledge_base(keyword)
+    response = requests.post(rag_url, json={
+        "knowledge_base_name": kb_name,
+        "keyword": keyword,
+        "top_k": 3
+    })
+    return response.text
 
 if __name__ =="__main__":
     print(f"###### main ######")

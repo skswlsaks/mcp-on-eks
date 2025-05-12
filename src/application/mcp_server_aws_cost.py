@@ -2,7 +2,7 @@ import logging
 import sys
 import mcp_cost as cost
 
-from mcp.server.fastmcp import FastMCP 
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level

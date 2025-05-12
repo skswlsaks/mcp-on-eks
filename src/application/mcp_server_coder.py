@@ -2,8 +2,7 @@ import logging
 import sys
 import mcp_coder as coder
 
-from typing import Dict, Optional, Any
-from mcp.server.fastmcp import FastMCP 
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -34,7 +33,7 @@ except Exception as e:
 @mcp.tool()
 def repl_coder(code):
     """
-    Use this to execute python code and do math. 
+    Use this to execute python code and do math.
     If you want to see the output of a value, you should print it out with `print(...)`. This is visible to the user.
     code: the Python code was written in English
     """
@@ -52,11 +51,11 @@ def repl_drawer(code):
     When a comparison is made, all arrays must be of the same length.
     code: the Python code was written in English
     return: the url of graph
-    """ 
+    """
     logger.info(f"repl_drawer --> code:\n {code}")
-    
+
     return coder.repl_drawer(code)
-    
+
 if __name__ =="__main__":
     print(f"###### main ######")
     mcp.run(transport="stdio")

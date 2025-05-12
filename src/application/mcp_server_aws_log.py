@@ -2,8 +2,8 @@ import logging
 import sys
 import mcp_log as log
 
-from typing import Dict, Optional, Any
-from mcp.server.fastmcp import FastMCP 
+from typing import Optional
+from mcp.server.fastmcp import FastMCP
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -60,7 +60,7 @@ async def get_logs(
         filterPattern=filterPattern,
         region=region
     )
-    
+
 ######################################
 # AWS Logs
 ######################################
