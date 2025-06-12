@@ -19,6 +19,9 @@ spec:
       containers:
       - name: mcp-collectdata
         image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:collectdata
+        env:
+        - name: POLYGON_APIKEY
+          value: <#PASTE POLYGON_APIKEY HERE>
         ports:
         - containerPort: 8000
         readinessProbe:

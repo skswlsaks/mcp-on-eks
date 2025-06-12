@@ -1,14 +1,12 @@
 import os
 import requests
-import httpx
-import json
 import yfinance as yf
+import httpx
 from datetime import date, timedelta, datetime
 from fastmcp import FastMCP
-from starlette.requests import Request
-from starlette.responses import JSONResponse
+import json
 
-# Replace Polygon api key
+
 POLYGON_APIKEY = os.environ.get("POLYGON_APIKEY") if os.environ.get("POLYGON_APIKEY") else ""
 
 # Initialize FastMCP server
@@ -75,7 +73,7 @@ async def map_ticker_to_cik(ticker: str) -> str:
         return f"Could not find CIK for ticker {ticker}"
 
 @mcp.tool()
-async def get_stock_price_data(ticker_symbol, start_date, end_date=str(date.today())):
+async def get_stock_price_data(ticker_symbol, start_date, end_date=date.today()):
     """
     Fetch historical price data for a given stock ticker using Yahoo Finance.
     Time difference between start_date and end_date should be less than 180 days.
@@ -94,6 +92,7 @@ async def get_stock_price_data(ticker_symbol, start_date, end_date=str(date.toda
     try:
         response = requests.get(f"https://api.polygon.io/v2/aggs/ticker/AAPL/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&limit=180&apiKey={POLYGON_APIKEY}")
         results = json.loads(response.text)['results']
+        print(results)
         # # Create ticker object
         # ticker = yf.Ticker(ticker_symbol)
 
@@ -103,6 +102,20 @@ async def get_stock_price_data(ticker_symbol, start_date, end_date=str(date.toda
         print(f"Error fetching data for {ticker_symbol}: {e}")
         return None
     return results
+    # Reset index to make Date a column
+    # df = df.reset_index()
+    # return df.to_json()
+
+
+@mcp.tool()
+async def get_current_time():
+    """
+    Fetches the current time of machine
+
+    Returns: \n
+        str: Current time in ISO format
+    """
+    return datetime.now().isoformat()
 
 
 @mcp.tool()
@@ -124,10 +137,5 @@ async def get_moodys_aaa_bond_yield() -> str:
     return float(current_yield)
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({"status": "healthy"})
-
-
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000, path="/messages")
+    mcp.run()

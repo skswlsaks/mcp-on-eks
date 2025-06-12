@@ -4,39 +4,4 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "aiohttp>=3.11.16",
-    "aiohttp-devtools>=1.1.2",
-    "boto3>=1.37.23",
-    "botocore>=1.37.30",
-    "fastapi>=0.115.12",
-    "fastmcp>=0.4.1",
-    "httpx>=0.28.1",
-    "ipykernel>=6.29.5",
-    "langchain>=0.3.24",
-    "langchain-aws>=0.2.22",
-    "langchain-community>=0.3.23",
-    "langchain-experimental>=0.3.4",
-    "langchain-mcp-adapters>=0.0.9",
-    "langgraph>=0.4.1",
-    "langgraph-supervisor>=0.0.19",
-    "langgraph-swarm>=0.0.11",
-    "mcp[cli]>=1.6.0",
-    "openai>=1.73.0",
-    "opensearch-py>=2.8.0",
-    "plotly>=6.0.1",
-    "pypdf2>=3.0.1",
-    "streamlit>=1.44.0",
-    "tavily-python>=0.7.0",
-    "uvicorn>=0.34.0",
-    "watchdog>=6.0.0",
-    "yfinance>=0.2.55",
-]
-
-[dependency-groups]
-dev = [
-    "watchdog>=6.0.0",
-]
-
-[tool.uv.workspace]
-members = ["src/weather", "src/mcpservers/time"]
+dependencies = []

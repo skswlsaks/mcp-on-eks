@@ -1,5 +1,5 @@
 # Python-generated files
-__pycache__/
+*__pycache__*
 *.py[oc]
 build/
 dist/
@@ -14,3 +14,6 @@ wheels/
 .DS_Store
 remember.txt
 .terraform
+memo
+
+build.sh

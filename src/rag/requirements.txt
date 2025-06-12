@@ -1,6 +1,0 @@
-langchain_aws
-langchain
-fastapi
-boto3
-botocore
-uvicorn

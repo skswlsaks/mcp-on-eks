@@ -1,0 +1,104 @@
+# streamlit.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strands-app
+  namespace: mcp-application
+  labels:
+    app: strands-app
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::060795905711:role/mcp-eks-role
+spec:
+  replicas: 3  # Increased replicas for high availability
+  selector:
+    matchLabels:
+      app: strands-app
+  template:
+    metadata:
+      labels:
+        app: strands-app
+    spec:
+      serviceAccountName: mcp-eks-sa
+      containers:
+      - name: strands-app
+        image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:app
+        env:
+        - name: ANALYSIS_MCP_URL
+          value: http://mcp-stock-analysis-service.mcp-server.svc.cluster.local/messages/
+        - name: DATA_MCP_URL
+          value: http://mcp-collectdata-service.mcp-server.svc.cluster.local/messages/
+        - name: RAGURL
+          value: http://mcp-rag-service.mcp-server.svc.cluster.local
+        - name: KNOWLEDGE_BASE_ID
+          value: kb-mcp-demo
+        - name: BEDROCK_MODEL_ID
+          value: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+        - name: BEDROCK_REGION
+          value: us-west-2
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        imagePullPolicy: Always
+
+---
+# Service for strands-app
+apiVersion: v1
+kind: Service
+metadata:
+  name: strands-app-service
+  namespace: mcp-application
+spec:
+  type: ClusterIP
+  selector:
+    app: strands-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+
+---
+# HorizontalPodAutoscaler for automatic scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: strands-app-hpa
+  namespace: mcp-application
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: strands-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

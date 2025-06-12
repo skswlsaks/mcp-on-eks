@@ -1,10 +1,7 @@
 from fastmcp import FastMCP
-from starlette.requests import Request
-from starlette.responses import JSONResponse
-
 
 # Initialize FastMCP server
-mcp = FastMCP("stock_analysis", stateless_http=True)
+mcp = FastMCP("stock_analysis")
 
 @mcp.tool()
 async def calculate_intrinsic_value(eps: float, yield_aaa_bond: float, growth_rate=10.5) -> float:
@@ -42,11 +39,5 @@ async def should_buy_or_not(ticker: str, current_price: float, intrinsic_price: 
         return f"Don't buy {ticker} stock, current price is {current_price} and intrinsic price is {intrinsic_price}"
 
 
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({"status": "healthy"})
-
-
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000, path="/messages")
-
+    mcp.run()

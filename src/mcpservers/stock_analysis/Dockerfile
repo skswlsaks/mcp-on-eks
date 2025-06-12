@@ -19,4 +19,4 @@ EXPOSE 8000
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-CMD ["uvicorn", "collectdata:app", "--host 0.0.0.0", "--port 8000"]
+CMD ["python", "analysis.py"]

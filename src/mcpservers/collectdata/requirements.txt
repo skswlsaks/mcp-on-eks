@@ -1,4 +1,4 @@
-fastmcp==2.2.8
+fastmcp==2.7.1
 yfinance
 httpx
 click

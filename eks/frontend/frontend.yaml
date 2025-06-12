@@ -1,0 +1,129 @@
+# streamlit.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: mcp-application
+  labels:
+    app: frontend
+spec:
+  replicas: 3  # Increased replicas for high availability
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:front
+        env:
+        - name: CHAT_API
+          value: http://strands-app-service.mcp-application.svc.cluster.local/
+        ports:
+        - containerPort: 8501
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        imagePullPolicy: Always
+
+---
+# Service for mcp-client
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-front-service
+  namespace: mcp-application
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"  # Using Network Load Balancer
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8501
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 8501
+      protocol: TCP
+
+---
+# HorizontalPodAutoscaler for automatic scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: mcp-application
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: mcp-application
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: frontend
+    ports:
+    - protocol: TCP
+      port: 8501
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: mcp-application
+    ports:
+    - protocol: TCP
